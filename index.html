@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
+    <title>ASI 数据感知节点 · 终极生产版</title>
+    <style>
+        :root {
+            --bg: #0a0f1e; --surface: #111a2e; --surface-light: #222f50; --border: #1e2f4a;
+            --text: #e2e8f0; --text-secondary: #94a3b8; --primary: #60a5fa; --purple: #a78bfa;
+            --success: #4ade80; --warn: #fbbf24; --danger: #f87171;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif;
+            min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 2rem 0.8rem;
+        }
+        .container {
+            width: 100%; max-width: 1160px; background: var(--surface); border: 1px solid var(--border);
+            border-radius: 1.6rem; padding: 2rem; box-shadow: 0 24px 80px rgba(0, 12, 32, 0.7);
+        }
+        .logo {
+            font-size: 2rem; font-weight: 800;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .badge {
+            display: inline-block; padding: 0.15rem 0.6rem; background: #2a2f5a; color: var(--purple);
+            font-size: 0.65rem; border-radius: 20px; margin-left: 0.6rem; vertical-align: top;
+        }
+        .subtitle { color: var(--text-secondary); padding-bottom: 1rem; border-bottom: 1px solid var(--border); margin-bottom: 1.4rem; margin-top: 0.4rem; }
+        .grid-two { display: grid; grid-template-columns: 2fr 1fr; gap: 1.4rem; }
+        @media (max-width:768px) { .grid-two { grid-template-columns: 1fr; } }
+        .input-block { margin-bottom: 1.1rem; }
+        .input-block label { display: block; font-size: 0.86rem; margin-bottom: 0.3rem; color: #cbd5e1; }
+        .input-block input, .input-block textarea, .input-block select {
+            width: 100%; padding: 0.7rem 0.9rem; background: var(--bg); border: 1px solid var(--border);
+            border-radius: 0.6rem; color: var(--text); font-size: 0.92rem;
+        }
+        .input-block textarea { min-height: 80px; resize: vertical; }
+        .btn-main {
+            width: 100%; padding: 0.78rem; border: none; border-radius: 0.6rem; font-size: 1rem;
+            font-weight: 700; background: linear-gradient(135deg, #60a5fa, #8b5cf6); color: #000; cursor: pointer;
+        }
+        .btn-main:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-row { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 1rem; }
+        .btn-outline {
+            flex: 1; min-width: 125px; padding: 0.6rem; background: transparent; border: 1px solid var(--border);
+            color: var(--text); border-radius: 0.5rem; cursor: pointer;
+        }
+        .btn-outline:hover { background: var(--surface-light); }
+        .log-panel {
+            background: var(--bg); border: 1px solid var(--border); border-radius: 0.6rem; padding: 0.9rem;
+            margin-top: 1rem; min-height: 4.2rem; font-size: 0.84rem; color: var(--text-secondary); overflow-y: auto; max-height: 160px;
+        }
+        .code-box {
+            background: var(--bg); border: 1px solid var(--border); border-radius: 0.6rem; padding: 1rem; margin-top: 1rem;
+            min-height: 360px; max-height: 460px; overflow: auto; white-space: pre-wrap; font-family: "Fira Code", monospace; font-size: 0.73rem; color: #cbd5e1;
+        }
+        .key-bar {
+            margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--border);
+            display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem;
+        }
+        .key-bar input, .key-bar select { padding: 0.4rem 0.7rem; background: var(--bg); border: 1px solid var(--border); border-radius: 0.4rem; color: var(--text); }
+        .key-bar button { padding: 0.4rem 1rem; border: none; border-radius: 0.4rem; background: var(--surface-light); color: var(--text); cursor: pointer; }
+        .key-bar button:hover { background: #334466; }
+        .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+        .dot-green { background: var(--success); } .dot-yellow { background: var(--warn); }
+        .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.86); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        .modal-wrap { width: min(92%, 520px); background: var(--surface); border: 1px solid var(--border); border-radius: 1rem; padding: 2rem; }
+        .hidden { display: none !important; }
+        .history-wrap { margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 0.8rem; }
+        .history-item { padding: 0.6rem; border: 1px solid var(--border); border-radius: 0.4rem; margin-bottom: 0.5rem; cursor: pointer; }
+        .history-item:hover { background: var(--surface-light); }
+        .toast { position: fixed; bottom: 22px; right: 22px; padding: 0.8rem 1.2rem; border-radius: 0.5rem; color: #000; font-weight: 500; z-index: 10000; opacity: 1; transition: opacity 0.3s ease; }
+        .toast-success { background: var(--success); } .toast-warn { background: var(--warn); } .toast-error { background: var(--danger); }
+        .tip-text { font-size: 0.75rem; color: var(--text-secondary); }
+    </style>
+</head>
+<body>
+    <!-- 合规弹窗 -->
+    <div id="agreementModal" class="modal-mask hidden">
+        <div class="modal-wrap">
+            <h2 style="margin-bottom:1rem;">🤖 数据采集合规协议</h2>
+            <p style="line-height:1.7;color:var(--text-secondary);font-size:0.9rem;margin-bottom:1.2rem;">
+                1. 仅抓取公开无版权、无隐私的网页内容；<br>
+                2. 自动校验 robots.txt，禁止 Disallow 路径；<br>
+                3. 批量任务强制延时，禁止高频轰炸服务器；<br>
+                4. 公共模板会 AI 预审，拦截侵权抓取规则；<br>
+                5. 所有操作留存审计日志可溯源。
+            </p>
+            <div style="display:flex;gap:0.6rem;align-items:center;margin-bottom:1rem;">
+                <input type="checkbox" id="agreeCheck" style="width:18px;height:18px;">
+                <label>我确认完全遵守以上条款</label>
+            </div>
+            <button id="agreeConfirm" class="btn-main">确认启用工具</button>
+        </div>
+    </div>
+    <div class="container">
+        <div class="logo">
+            🌐 数据感知节点 <span class="badge">终极生产版 v2.0</span>
+        </div>
+        <div class="subtitle">双服务架构 · AES加密 · 智能断点续写 · 全平台一键部署</div>
+        <div class="grid-two">
+            <div>
+                <div class="input-block">
+                    <label>🎯 目标网页 URL</label>
+                    <input id="targetUrl" type="url" placeholder="https://example.com/news">
+                </div>
+                <div class="input-block">
+                    <label>📝 自然语言提取需求</label>
+                    <textarea id="desc" placeholder="提取全部新闻标题、链接、发布时间，自动分页抓取"></textarea>
+                </div>
+                <div class="input-block">
+                    <label>⏱ 定时 Cron（留空关闭周期采集）</label>
+                    <input id="cronExpr" placeholder="0 8 * * *">
+                </div>
+                <div class="history-wrap">
+                    <h4 style="font-size:0.9rem;margin-bottom:0.6rem;">📜 历史任务（点击回填）</h4>
+                    <div id="historyList"></div>
+                </div>
+            </div>
+            <div>
+                <div class="input-block">
+                    <label>🚀 部署平台</label>
+                    <select id="platform">
+                        <option value="vercel">Vercel (Python)</option>
+                        <option value="cloudflare">Cloudflare Workers</option>
+                        <option value="docker">Docker 本地/服务器</option>
+                    </select>
+                </div>
+                <button id="generateBtn" class="btn-main">⚡ 生成双服务项目</button>
+                <div class="log-panel" id="logBox">等待输入 URL 与需求后生成</div>
+                <div class="btn-row">
+                    <button id="downloadBtn" class="btn-outline">⬇️ 下载 ZIP</button>
+                    <button id="copyBtn" class="btn-outline">📋 复制代码</button>
+                    <button id="formatBtn" class="btn-outline">✨ 格式化</button>
+                </div>
+            </div>
+        </div>
+        <div class="code-box" id="codePreview">// 生成的 scrape / agent 双服务代码将展示于此</div>
+        <div class="key-bar">
+            <span style="font-size:0.8rem;color:var(--text-secondary);">🔑 大模型：</span>
+            <select id="llmProvider">
+                <option value="gemini">Gemini</option>
+                <option value="openai">OpenAI</option>
+                <option value="qwen">通义千问</option>
+                <option value="ernie">文心一言</option>
+            </select>
+            <input id="llmKeyInput" type="password" placeholder="API Key" style="flex:1; min-width:120px;">
+            <button id="saveKeyBtn">加密保存</button>
+            <span id="keyStatus"><span class="status-dot dot-yellow"></span> 未配置</span>
+            <span style="font-size:0.7rem;color:var(--warn);margin-left:auto;">⚠️ 若遇跨域/超时，请使用 Live Server 运行并开启代理</span>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script type="module">
+        // ============================================================
+        // 1. DOM 引用与基础工具
+        // ============================================================
+        const $ = id => document.getElementById(id);
+        const modal = $('agreementModal');
+        const agreeCheck = $('agreeCheck');
+        const agreeConfirm = $('agreeConfirm');
+        const generateBtn = $('generateBtn');
+        const downloadBtn = $('downloadBtn');
+        const copyBtn = $('copyBtn');
+        const formatBtn = $('formatBtn');
+        const logBox = $('logBox');
+        const codePreview = $('codePreview');
+        const targetUrl = $('targetUrl');
+        const desc = $('desc');
+        const cronExpr = $('cronExpr');
+        const platform = $('platform');
+        const llmProvider = $('llmProvider');
+        const llmKeyInput = $('llmKeyInput');
+        const saveKeyBtn = $('saveKeyBtn');
+        const keyStatus = $('keyStatus');
+        const historyList = $('historyList');
+        let currentScrapeCode = '';
+        let currentAgentCode = '';
+        let currentZipBlob = null;
+        let taskHistory = JSON.parse(localStorage.getItem('fusion_task_history') || '[]');
+        const AGREE_KEY = 'fusion_agree_2026';
+        const AES_BASE_SEED = 'fusion-asi-secret-2026';
+        function safeCreate(tag, text = null, cls = '') {
+            const el = document.createElement(tag);
+            if (text !== null) el.textContent = text;
+            if (cls) el.className = cls;
+            return el;
+        }
+        function showToast(text, type = 'info') {
+            const toast = safeCreate('div', text, `toast toast-${type}`);
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; }, 2400);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        // ============================================================
+        // 2. AES-GCM 加密 (修复 Uint8Array 兼容性)
+        // ============================================================
+        async function getDeviceSalt() {
+            let salt = localStorage.getItem('fusion_salt');
+            if (!salt) {
+                const buf = crypto.getRandomValues(new Uint32Array(4));
+                // 修复：必须使用 buf.buffer 获取底层 ArrayBuffer，防止不同浏览器转换异常
+                salt = btoa(String.fromCharCode(...new Uint8Array(buf.buffer)));
+                localStorage.setItem('fusion_salt', salt);
+            }
+            return salt;
+        }
+        async function deriveAesKey() {
+            const salt = await getDeviceSalt();
+            const fullSeed = AES_BASE_SEED + salt;
+            const enc = new TextEncoder();
+            const hashBuffer = await crypto.subtle.digest('SHA-256', enc.encode(fullSeed));
+            return await crypto.subtle.importKey('raw', hashBuffer, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+        }
+        async function encryptStr(raw) {
+            const keyMat = await deriveAesKey();
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const enc = new TextEncoder();
+            const cipherBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, keyMat, enc.encode(raw));
+            const fullArr = [...iv, ...new Uint8Array(cipherBuf)];
+            return btoa(String.fromCharCode(...fullArr));
+        }
+        async function decryptStr(cipher) {
+            const keyMat = await deriveAesKey();
+            const rawArr = atob(cipher).split('').map(c => c.charCodeAt(0));
+            const iv = new Uint8Array(rawArr.slice(0, 12));
+            const data = new Uint8Array(rawArr.slice(12));
+            const plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, keyMat, data);
+            return new TextDecoder().decode(plainBuf);
+        }
+        // ============================================================
+        // 3. 代码清理与深度完整性校验 (支持三引号与方括号)
+        // ============================================================
+        function cleanMarkdownCode(text) {
+            let s = text.trim();
+            if (s.startsWith('```python')) s = s.slice(9);
+            else if (s.startsWith('```js')) s = s.slice(4);
+            else if (s.startsWith('```')) s = s.slice(3);
+            if (s.endsWith('```')) s = s.slice(0, -3);
+            return s.trim();
+        }
+        function stripCommentsAndStrings(code) {
+            let s = code;
+            // 1. 优先处理 Python 三引号多行字符串
+            s = s.replace(/"""[\s\S]*?"""/g, '""""""');
+            s = s.replace(/'''[\s\S]*?'''/g, "''''''");
+            // 2. 处理常规注释和字符串
+            s = s.replace(/\/\/.*/g, '');
+            s = s.replace(/\/\*[\s\S]*?\*\//g, '');
+            s = s.replace(/"(?:\\.|[^"\\])*"/g, '""');
+            s = s.replace(/'(?:\\.|[^'\\])*'/g, "''");
+            s = s.replace(/`(?:\\.|[^`\\])*`/g, '``');
+            return s;
+        }
+        function isCodeComplete(rawCode) {
+            const clean = stripCommentsAndStrings(rawCode);
+            let depth = 0, parenDepth = 0, bracketDepth = 0;
+            for (let i = 0; i < clean.length; i++) {
+                if (clean[i] === '{') depth++;
+                else if (clean[i] === '}') depth--;
+                else if (clean[i] === '(') parenDepth++;
+                else if (clean[i] === ')') parenDepth--;
+                else if (clean[i] === '[') bracketDepth++;
+                else if (clean[i] === ']') bracketDepth--;
+                if (depth < 0 || parenDepth < 0 || bracketDepth < 0) return false;
+            }
+            const hasPyEntry = rawCode.includes("if __name__") || rawCode.includes('app.run(');
+            const hasJsEntry = rawCode.includes('app.listen(') || rawCode.includes('module.exports');
+            const hasEntry = hasPyEntry || hasJsEntry;
+            return depth === 0 && parenDepth === 0 && bracketDepth === 0 && hasEntry;
+        }
+        // ============================================================
+        // 4. LLM 生成与智能断点续写 (防上下文爆炸)
+        // ============================================================
+        async function fullCodeGenerate(sysPrompt, userMsg, maxRetry = 2) {
+            const cipher = localStorage.getItem('fusion_llm_cipher');
+            if (!cipher) throw new Error('请先加密保存大模型密钥');
+            const llmRaw = await decryptStr(cipher);
+            const prov = localStorage.getItem('fusion_provider') || 'gemini';
+            let fullOutput = '';
+            let retryCnt = 0;
+            while (retryCnt <= maxRetry) {
+                let resp;
+                let reqText = '';
+                
+                // 优化续写策略：首次给全量需求，续写只给最后 600 字符作为锚点
+                if (retryCnt === 0) {
+                    reqText = `${sysPrompt}\n用户需求：${userMsg}\n请一次性输出完整代码，不要省略。`;
+                } else {
+                    const lastChunk = fullOutput.slice(-600);
+                    reqText = `${sysPrompt}\n【系统指令】：上一段代码因长度被截断。以下是代码的最后 600 个字符：\n"""${lastChunk}"""\n请严格从截断处继续续写，绝对不要重复已输出的内容，不要输出任何解释，直接接续代码。`;
+                }
+                
+                if (prov === 'gemini') {
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${llmRaw}`;
+                    resp = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: reqText }] }], generationConfig: { temperature: 0.05, maxOutputTokens: 8192 } })
+                    });
+                } else {
+                    let apiUrl = 'https://api.openai.com/v1/chat/completions';
+                    if (prov === 'qwen') apiUrl = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+                    if (prov === 'ernie') apiUrl = 'https://qianfan.baidubce.com/v2/chat/completions';
+                    const modelName = prov === 'qwen' ? 'qwen-turbo' : (prov === 'ernie' ? 'ERNIE-4.0-8K' : 'gpt-4o-mini');
+                    resp = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${llmRaw}` },
+                        body: JSON.stringify({ model: modelName, temperature: 0.05, max_tokens: 8192, messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: reqText }] })
+                    });
+                }
+                const json = await resp.json();
+                if (json.error) throw new Error(json.error.message);
+                let chunk = '';
+                if (prov === 'gemini') chunk = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                else chunk = json.choices?.[0]?.message?.content || '';
+                fullOutput += cleanMarkdownCode(chunk);
+                if (isCodeComplete(fullOutput)) break;
+                
+                retryCnt++;
+                showToast('代码未完整生成，触发智能断点续写...', 'warn');
+            }
+            if (!isCodeComplete(fullOutput)) throw new Error('达到最大续写次数，代码仍残缺，请尝试重新生成');
+            return fullOutput;
+        }
+        // ============================================================
+        // 5. 历史记录与密钥管理
+        // ============================================================
+        function renderHistory() {
+            historyList.innerHTML = '';
+            if (taskHistory.length === 0) {
+                historyList.appendChild(safeCreate('div', '暂无历史任务', 'tip-text'));
+                return;
+            }
+            taskHistory.forEach(item => {
+                const wrap = safeCreate('div', '', 'history-item');
+                const urlLine = safeCreate('div', item.url);
+                urlLine.style.fontWeight = '500';
+                const descLine = safeCreate('div', item.desc.slice(0, 70) + '...', 'tip-text');
+                wrap.appendChild(urlLine);
+                wrap.appendChild(descLine);
+                wrap.onclick = () => {
+                    targetUrl.value = item.url;
+                    desc.value = item.desc;
+                    cronExpr.value = item.cron || '';
+                    platform.value = item.plat;
+                };
+                historyList.appendChild(wrap);
+            });
+        }
+        function saveHistoryRecord() {
+            const rec = { url: targetUrl.value.trim(), desc: desc.value.trim(), cron: cronExpr.value.trim(), plat: platform.value };
+            taskHistory = taskHistory.filter(i => !(i.url === rec.url && i.desc === rec.desc));
+            taskHistory.unshift(rec);
+            if (taskHistory.length > 12) taskHistory.pop();
+            localStorage.setItem('fusion_task_history', JSON.stringify(taskHistory));
+            renderHistory();
+        }
+        async function saveLLMKey() {
+            const raw = llmKeyInput.value.trim();
+            if (!raw) return showToast('请输入 API 密钥', 'warn');
+            const cipher = await encryptStr(raw);
+            localStorage.setItem('fusion_llm_cipher', cipher);
+            localStorage.setItem('fusion_provider', llmProvider.value);
+            updateKeyStatus();
+            showToast('密钥已 AES 加密保存（本地存储）', 'success');
+        }
+        async function loadLLMKey() {
+            const cipher = localStorage.getItem('fusion_llm_cipher');
+            const prov = localStorage.getItem('fusion_provider') || 'gemini';
+            llmProvider.value = prov;
+            if (cipher) {
+                try {
+                    const raw = await decryptStr(cipher);
+                    llmKeyInput.value = raw;
+                } catch (e) { console.warn('密钥解密失败', e); }
+            }
+            updateKeyStatus();
+        }
+        function updateKeyStatus() {
+            keyStatus.innerHTML = '';
+            const has = !!localStorage.getItem('fusion_llm_cipher');
+            const dot = safeCreate('span', '', `status-dot ${has ? 'dot-green' : 'dot-yellow'}`);
+            const textNode = document.createTextNode(has ? ' 已配置' : ' 未配置');
+            keyStatus.appendChild(dot);
+            keyStatus.appendChild(textNode);
+        }
+        // ============================================================
+        // 6. 合规弹窗与系统提示词
+        // ============================================================
+        function initAgreement() {
+            if (localStorage.getItem(AGREE_KEY) === '1') modal.classList.add('hidden');
+            else modal.classList.remove('hidden');
+            agreeConfirm.onclick = () => {
+                if (!agreeCheck.checked) return showToast('必须勾选协议', 'warn');
+                localStorage.setItem(AGREE_KEY, '1');
+                modal.classList.add('hidden');
+                showToast('协议确认完成', 'success');
+            };
+        }
+        function buildSystemPrompts(targetUrl, userDesc, cronStr, plat) {
+            const isPy = plat !== 'cloudflare';
+            const entryScrape = isPy ? 'api/scrape.py' : 'scrape.js';
+            const entryAgent = isPy ? 'api/agent.py' : 'agent.js';
+            const scrapePrompt = `仅输出完整 ${entryScrape} 代码，无Markdown、无解释；轻量独立抓取服务，无异步任务，内置safe_extract、随机UA、指数重试、robots校验、CORS，缓存全部存入KV，禁止内存变量；抓取优先级JSON-LD > __NEXT_DATA__ > DOM；语言${isPy ? 'Python3.12 Flask' : 'Node.js Express'}；目标${targetUrl}，需求${userDesc}`;
+            let cronTip = '';
+            if (cronStr.trim()) cronTip = `内置定时 ${cronStr} 抓取，结果存入KV数据表；`;
+            const agentPrompt = `仅输出完整 ${entryAgent} 代码；独立Agent服务，提供/.well-known/ai-plugin、/tasks异步队列、/agent/commands自然指令；KV NX分布式租约锁防重复抓取，JWT分层鉴权，模板AI预审；${cronTip}全部操作写入KV审计日志，自动30天过期；无WebSocket，纯HTTP；语言${isPy ? 'Python3.12 Flask' : 'Node.js Express'}`;
+            return { scrapePrompt, agentPrompt };
+        }
+        // ============================================================
+        // 7. 打包 ZIP (修复 Docker 双进程与 Vercel CLI 部署)
+        // ============================================================
+        async function buildFullZip(plat, scrapeCode, agentCode, cronStr) {
+            const JSZipClass = window.JSZip;
+            if (!JSZipClass) throw new Error('JSZip 加载失败，请刷新页面');
+            const zip = new JSZipClass();
+            const isPy = plat !== 'cloudflare';
+            if (isPy) {
+                zip.file('api/scrape.py', scrapeCode);
+                zip.file('api/agent.py', agentCode);
+                zip.file('requirements.txt', ['flask','requests','beautifulsoup4','lxml','pyjwt','redis'].join('\n'));
+                zip.file('local_scrape.py', `# 本地轻量调试\nimport os\nos.environ["AGENT_MODE"]="0"\nfrom api.scrape import app\napp.run(port=5001)`);
+                zip.file('local_agent.py', `# 本地Agent调试\nimport os\nos.environ["AGENT_MODE"]="1"\nfrom api.agent import app\napp.run(port=5002)`);
+                
+                // 修复：引入 start.sh 并发启动双服务
+                zip.file('start.sh', `#!/bin/bash\npython local_scrape.py &\npython local_agent.py &\nwait`);
+                zip.file('vercel.json', JSON.stringify({ "functions": { "api/scrape.py": { "runtime": "python3.12", "maxDuration": 30 }, "api/agent.py": { "runtime": "python3.12", "maxDuration": 30 } } }, null, 2));
+                // 修复：Dockerfile 使用 start.sh 启动双服务并暴露端口
+                zip.file('Dockerfile', `FROM python:3.12-slim\nWORKDIR /app\nCOPY . .\nRUN pip install --no-cache-dir -r requirements.txt\nRUN chmod +x start.sh\nEXPOSE 5001 5002\nCMD ["./start.sh"]`);
+            } else {
+                zip.file('scrape.js', scrapeCode);
+                zip.file('agent.js', agentCode);
+                zip.file('package.json', JSON.stringify({ "dependencies": { "express": "^4.18", "cheerio": "^1.0", "jsonwebtoken": "^9.0" } }, null, 2));
+                zip.file('wrangler.toml', `name = "fusion-scrape"\nmain = "scrape.js"\ncompatibility_date = "2024-12-01"`);
+            }
+            // 安全的 Linux/macOS 部署脚本 (改用 Vercel CLI 避免上传失败)
+            const deploySh = `#!/bin/bash
+set -e
+if [ ! -f .env ]; then
+    echo "❌ 未找到 .env 文件，请从 .env.example 复制并填入配置"
+    exit 1
+fi
+export $(grep -v '^#' .env | xargs)
+zip -r project.zip . -x "*.git*" "*.env" "*.zip" "__pycache__/*" "node_modules/*"
+if [ "$PLATFORM" = "vercel" ]; then
+    if ! command -v vercel &> /dev/null; then
+        echo "📦 正在安装 Vercel CLI..."
+        npm install -g vercel
+    fi
+    if [ -z "$VERCEL_TOKEN" ]; then echo "❌ 缺少 VERCEL_TOKEN"; exit 1; fi
+    echo "🚀 部署到 Vercel..."
+    vercel --prod --token "$VERCEL_TOKEN" --yes
+elif [ "$PLATFORM" = "cloudflare" ]; then
+    if [ -z "$CF_API_TOKEN" ]; then echo "❌ 缺少 CF_API_TOKEN"; exit 1; fi
+    echo "🚀 部署到 Cloudflare Workers..."
+    npx wrangler deploy --token "$CF_API_TOKEN"
+else
+    echo "🐳 构建 Docker 镜像并运行..."
+    docker build -t fusion-node .
+    docker run -d -p 5001:5001 -p 5002:5002 --name fusion-node fusion-node
+    echo "✅ 服务运行于 Scrape: http://localhost:5001 | Agent: http://localhost:5002"
+fi
+`;
+            zip.file('deploy.sh', deploySh);
+            // 安全的 Windows 批处理脚本 (重构环境变量解析与 CLI 调用)
+            const deployBat = `@echo off
+setlocal enabledelayedexpansion
+if not exist .env (
+    echo ❌ 未找到 .env 文件，请从 .env.example 复制并填入配置
+    pause
+    exit /b 1
+)
+REM 修复：使用 findstr 精准解析 .env，跳过注释和空行
+for /f "eol=# delims== tokens=1,*" %%a in (.env) do (
+    set "key=%%a"
+    set "val=%%b"
+    if defined key if defined val set "!key!=!val!"
+)
+if "%PLATFORM%"=="" (
+    echo ❌ 请在 .env 中设置 PLATFORM=vercel ^| cloudflare ^| docker
+    pause
+    exit /b 1
+)
+powershell -command "Compress-Archive -Path * -DestinationPath project.zip -Force"
+if "%PLATFORM%"=="vercel" goto DEPLOY_VERCEL
+if "%PLATFORM%"=="cloudflare" goto DEPLOY_CF
+if "%PLATFORM%"=="docker" goto DEPLOY_DOCKER
+echo ❌ 未知的 PLATFORM 值: %PLATFORM%
+pause
+exit /b 1
+:DEPLOY_VERCEL
+where vercel >nul 2>nul
+if errorlevel 1 (
+    echo 📦 正在安装 Vercel CLI...
+    call npm install -g vercel
+)
+if "%VERCEL_TOKEN%"=="" (
+    echo ❌ 缺少 VERCEL_TOKEN
+    pause
+    exit /b 1
+)
+echo 🚀 部署到 Vercel...
+call vercel --prod --token "%VERCEL_TOKEN%" --yes
+goto END
+:DEPLOY_CF
+if "%CF_API_TOKEN%"=="" (
+    echo ❌ 缺少 CF_API_TOKEN
+    pause
+    exit /b 1
+)
+echo 🚀 部署到 Cloudflare Workers...
+call npx wrangler deploy --token "%CF_API_TOKEN%"
+goto END
+:DEPLOY_DOCKER
+echo 🐳 构建 Docker 镜像并运行...
+docker build -t fusion-node .
+docker run -d -p 5001:5001 -p 5002:5002 --name fusion-node fusion-node
+echo ✅ 服务运行于 Scrape: http://localhost:5001 ^| Agent: http://localhost:5002
+goto END
+:END
+pause
+`;
+            zip.file('deploy.bat', deployBat);
+            zip.file('.env.example', `PLATFORM=${plat}\nVERCEL_TOKEN=\nVERCEL_TEAM_ID=\nCF_API_TOKEN=\nGEMINI_API_KEY=\nAGENT_MODE_ENABLED=0\nDISABLE_AGENT_ENDPOINTS=0\nMAX_CONCURRENT_SCRAPE=8\nTASK_TTL_HOURS=72\nLOG_TTL_DAYS=30\nTEMPLATE_TTL_DAYS=90\nTEMPLATE_SOURCES=https://cn-templates.example.com\nHTTP_PROXY=\nHTTPS_PROXY=\nSECRET_ADMIN_TOKEN=\nBLACKLIST_JWT_TOKENS=\nCRON_EXPR=${cronStr}\n`);
+            
+            zip.file('README.md', `# ASI Data Perception Node v2.0\n\n## Deployment\n1. Unzip the package.\n2. Copy \`.env.example\` to \`.env\` and fill in tokens.\n3. Run \`deploy.sh\` (Linux/macOS) or \`deploy.bat\` (Windows).\n\n## Ports\n- Scrape Service: 5001\n- Agent Service: 5002\n\n## License\nGNU Affero General Public License v3.0`);
+            zip.file('LICENSE', 'GNU AFFERO GENERAL PUBLIC LICENSE Version 3, 19 November 2007');
+            return zip.generateAsync({ type: 'blob' });
+        }
+        // ============================================================
+        // 8. 生成按钮事件绑定
+        // ============================================================
+        generateBtn.onclick = async () => {
+            const urlRaw = targetUrl.value.trim();
+            const descRaw = desc.value.trim();
+            const cronRaw = cronExpr.value.trim();
+            const platRaw = platform.value;
+            if (!urlRaw || !descRaw) return showToast('请填写 URL 与提取需求', 'error');
+            try { new URL(urlRaw); } catch { return showToast('URL 格式非法', 'error'); }
+            generateBtn.disabled = true;
+            generateBtn.textContent = '🧠 生成双服务代码中...';
+            logBox.textContent = '正在拆分轻量 / Agent 两套独立服务';
+            codePreview.textContent = '// 生成中...';
+            try {
+                const { scrapePrompt, agentPrompt } = buildSystemPrompts(urlRaw, descRaw, cronRaw, platRaw);
+                currentScrapeCode = await fullCodeGenerate(scrapePrompt, `${urlRaw} 抓取逻辑`);
+                currentAgentCode = await fullCodeGenerate(agentPrompt, `${urlRaw} Agent 管理逻辑`);
+                codePreview.textContent = `===== api/scrape.py =====\n${currentScrapeCode}\n\n===== api/agent.py =====\n${currentAgentCode}`;
+                currentZipBlob = await buildFullZip(platRaw, currentScrapeCode, currentAgentCode, cronRaw);
+                saveHistoryRecord();
+                logBox.textContent = '✅ 生成完成，可下载部署包';
+                showToast('项目生成成功', 'success');
+            } catch (err) {
+                logBox.textContent = `❌ ${err.message}`;
+                codePreview.textContent = `// 生成异常：${err.message}`;
+                showToast(`生成失败：${err.message}`, 'error');
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.textContent = '⚡ 生成双服务项目';
+            }
+        };
+        // ============================================================
+        // 9. 辅助按钮事件绑定
+        // ============================================================
+        downloadBtn.onclick = () => {
+            if (!currentZipBlob) return showToast('请先生成项目', 'warn');
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(currentZipBlob);
+            a.download = `fusion-project-${Date.now()}.zip`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        };
+        copyBtn.onclick = async () => {
+            if (!currentScrapeCode) return showToast('暂无代码', 'warn');
+            const fullText = `===== api/scrape.py =====\n${currentScrapeCode}\n\n===== api/agent.py =====\n${currentAgentCode}`;
+            try {
+                await navigator.clipboard.writeText(fullText);
+                showToast('复制成功', 'success');
+            } catch { showToast('复制失败，请手动框选', 'warn'); }
+        };
+        formatBtn.onclick = () => {
+            if (!currentScrapeCode) return showToast('无代码', 'warn');
+            codePreview.textContent = `===== api/scrape.py =====\n${cleanMarkdownCode(currentScrapeCode)}\n\n===== api/agent.py =====\n${cleanMarkdownCode(currentAgentCode)}`;
+            showToast('格式化完成', 'success');
+        };
+        saveKeyBtn.onclick = saveLLMKey;
+        // ============================================================
+        // 10. 页面初始化
+        // ============================================================
+        initAgreement();
+        loadLLMKey();
+        renderHistory();
+        console.log('✅ ASI 数据感知节点已就绪（终极生产版 v2.0）');
+    </script>
+</body>
+</html>
